@@ -20,7 +20,7 @@ from collections import OrderedDict
 #import regression_function as reg_f
 from sklearn.model_selection import StratifiedKFold
 import palettable
-
+from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
 import numpy as np
 # import sys 
@@ -32,6 +32,7 @@ from scipy import stats
 import random
 import seaborn as sns
 from itertools import combinations 
+from scipy import io
 
 font = {'family' : 'normal',
         'weight' : 'normal',
@@ -118,7 +119,7 @@ def regression_code_session(data, design_matrix):
         
     return cope,varcope
 
-def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1, a ='PFC',perm =False, t = 0):
+def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1, a ='PFC',perm = False, t = 0):
   
    # dm = data['DM'][0]
    # firing = data['Data'][0]
@@ -145,15 +146,16 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
         
         if len(ind_block) >10:
     
-            firing_rates = all_firing[s] #[:ind_block[11]]
-            n_trials, n_neurons, n_timepoints = firing_rates.shape
-            choices = DM[:,1]
-            reward = DM[:,2] #[:ind_block[11]]  
-            state = DM[:,0]
-            task =  DM[:,5] #[:ind_block[11]]
+            firing_rates = all_firing[s][n:]
            
-            a_pokes = DM[:,6] #[:ind_block[11]]
-            b_pokes = DM[:,7] #[:ind_block[11]]
+            n_trials, n_neurons, n_timepoints = firing_rates.shape
+            choices = DM[:,1][:ind_block[11]]  
+            reward = DM[:,2][:ind_block[11]]  
+            state = DM[:,0][:ind_block[11]][n:]  
+            task =  DM[:,5][:ind_block[11]][n:] 
+           
+            a_pokes = DM[:,6][:ind_block[11]][n:]
+            b_pokes = DM[:,7][:ind_block[11]][n:]
             
             taskid = task_ind(task, a_pokes, b_pokes)
           
@@ -162,7 +164,14 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
                 task_1 = np.where(task == 1)[0]
                 task_2 = np.where(task == 2)[0]
                 task_3 = np.where(task == 3)[0]
+                # task_1 = np.where(taskid == 1)[0]
+                # task_2 = np.where(taskid == 2)[0]
+                # task_3 = np.where(taskid == 3)[0]
+               
             else:
+                # task_1 = np.where(task == 1)[0]
+                # task_2 = np.where(task == 2)[0]
+                # task_3 = np.where(task == 3)[0]
                 task_1 = np.where(taskid == 1)[0]
                 task_2 = np.where(taskid == 2)[0]
                 task_3 = np.where(taskid == 3)[0]
@@ -170,66 +179,72 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
           
             reward_current = reward
             choices_current = choices - 0.5
-    
-           
-            rewards_1 = reward_current[task_1]
-            choices_1 = choices_current[task_1]
+
+            # rewards_1 = reward_current[task_1]
+            # choices_1 = choices_current[task_1]
             
-            previous_rewards_1 = scipy.linalg.toeplitz(rewards_1, np.zeros((1,n)))[n-1:-1]         
-            previous_choices_1 = scipy.linalg.toeplitz(0.5-choices_1, np.zeros((1,n)))[n-1:-1]       
-            interactions_1 = scipy.linalg.toeplitz((((0.5-choices_1)*(rewards_1-0.5))*2),np.zeros((1,n)))[n-1:-1]
-             
-    
-            ones = np.ones(len(interactions_1)).reshape(len(interactions_1),1)
-             
-            X_1 = np.hstack([previous_rewards_1,previous_choices_1,interactions_1,ones])
-            value_1 =np.matmul(X_1, average)
-          
-            rewards_1 = rewards_1[n:]
-            choices_1 = choices_1[n:]
-           
+            # previous_rewards_1 = scipy.linalg.toeplitz(rewards_1, np.zeros((1,n)))[n-1:-1]         
+            # previous_choices_1 = scipy.linalg.toeplitz(0.5-choices_1, np.zeros((1,n)))[n-1:-1]       
+            # interactions_1 = scipy.linalg.toeplitz((((0.5-choices_1)*(rewards_1-0.5))*2),np.zeros((1,n)))[n-1:-1]
+            # ones = np.ones(len(interactions_1)).reshape(len(interactions_1),1)
+            # X_1 = np.hstack([previous_rewards_1,previous_choices_1,interactions_1,ones])
             
+            # value_1 =np.matmul(X_1, average)
+            
+         
+            
+            previous_rewards = scipy.linalg.toeplitz(reward_current, np.zeros((1,n)))[n-1:-1]         
+            previous_choices = scipy.linalg.toeplitz(0.5-choices_current, np.zeros((1,n)))[n-1:-1]       
+            interactions = scipy.linalg.toeplitz((((0.5-choices_current)*(reward_current-0.5))*2),np.zeros((1,n)))[n-1:-1]
+            ones = np.ones(len(interactions)).reshape(len(interactions),1)
+            X = np.hstack([previous_rewards,previous_choices,interactions,ones])
+            value =np.matmul(X, average)
+            
+            rewards_1 = reward_current[n:][task_1]
+            choices_1 = choices_current[n:][task_1]
+            value_1 = value[task_1]
+
+           
             ones_1 = np.ones(len(choices_1))
             trials_1 = len(choices_1)
             
             state_1 = state[task_1]
-            state_1 = state_1[n:]
+          #  state_1 = state_1[n:]
             
             state_2 = state[task_2]
-            state_2 = state_2[n:]
+           # state_2 = state_2[n:]
             
-            state_3 = state[task_2]
-            state_3 = state_3[n:]
-            
-            
-            
+            state_3 = state[task_3]
+           # state_3 = state_3[n:]
+
           
-            firing_rates_1 = firing_rates[task_1][n:]
+            firing_rates_1 = firing_rates[task_1]
             
             a_1 = np.where(choices_1 == 0.5)[0]
             b_1 = np.where(choices_1 == -0.5)[0]
+            state_1_a = np.where(state_1 == 1)[0]
+            state_1_b = np.where(state_1 == 0) [0]
+            d_a = np.where(np.diff(state_1_a)!=1)[0][0]
+            d_b = np.where(np.diff(state_1_b)!=1)[0][0]
             
+            state_1_a_1 = state_1_a[:d_a]
+            state_1_a_2 = state_1_a[d_a:]
+            
+            state_1_b_1 = state_1_b[:d_b]
+            state_1_b_2 = state_1_b[d_b:]
+ 
             if plot_a == True:
                 
-                mean = np.mean(value_1[a_1])
+                    
+                ind_1_b = np.intersect1d(state_1_b_1,a_1)
+                ind_2_b =  np.intersect1d(state_1_b_2,a_1)
                
-                value_high = np.where(value_1 < mean)
-                low_high = np.where(value_1 > mean)
-               
-                ind_st_b = np.intersect1d(value_high,a_1)
-                ind_st_a = np.intersect1d(low_high,a_1)
-               
-                ind_1_b = ind_st_b[:int(len(ind_st_b)/2)]
-                ind_2_b =  ind_st_b[int(len(ind_st_b)/2):]
-               
-                ind_1_a = ind_st_a[:int(len(ind_st_a)/2)]
-                ind_2_a =  ind_st_a[int(len(ind_st_a)/2):]
+                ind_1_a = np.intersect1d(state_1_a_1,a_1)
+                ind_2_a = np.intersect1d(state_1_a_2,a_1)
                 
+                ind_1 = sorted(np.concatenate((ind_1_b,ind_1_a)))
+                ind_2 = sorted(np.concatenate((ind_2_b,ind_2_a)))
                 
-                ind_1 = np.concatenate((ind_1_b,ind_1_a))
-                ind_2 = np.concatenate((ind_2_b,ind_2_a))
-               
-               
                 if first_half == 1:
                     
                     rewards_1 = rewards_1[ind_1] 
@@ -246,29 +261,17 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
                     ones_1  = ones_1[ind_2]
                     firing_rates_1 = firing_rates_1[ind_2]
                     
-             
-                   
-                
-              
+ 
             elif plot_b == True:
                 
-                mean = np.mean(value_1[b_1])
-
-                value_high = np.where(value_1 < mean)
-                low_high = np.where(value_1 >= mean)
+                ind_1_b = np.intersect1d(state_1_b_1,b_1)
+                ind_2_b =  np.intersect1d(state_1_b_2,b_1)
                
-                ind_st_b = np.intersect1d(value_high,b_1)
-                ind_st_a = np.intersect1d(low_high,b_1)
-
-                ind_1_b = ind_st_b[:int(len(ind_st_b)/2)]
-                ind_2_b =  ind_st_b[int(len(ind_st_b)/2):]
-               
-                ind_1_a = ind_st_a[:int(len(ind_st_a)/2)]
-                ind_2_a =  ind_st_a[int(len(ind_st_a)/2):]
-                 
-
-                ind_1 = np.concatenate((ind_1_b,ind_1_a))
-                ind_2 = np.concatenate((ind_2_b,ind_2_a))
+                ind_1_a = np.intersect1d(state_1_a_1,b_1)
+                ind_2_a = np.intersect1d(state_1_a_2,b_1)
+ 
+                ind_1 = sorted(np.concatenate((ind_1_b,ind_1_a)))
+                ind_2 = sorted(np.concatenate((ind_2_b,ind_2_a)))
               
                 if first_half == 1:
                     rewards_1 = rewards_1[ind_1] 
@@ -284,11 +287,9 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
                     value_1 = value_1[ind_2]
                     ones_1  = ones_1[ind_2]
                     firing_rates_1 = firing_rates_1[ind_2]
-              
-                
-                      
-                
-                
+           
+         #   value_1 = value_1 - np.mean(value_1)
+      
             predictors_all = OrderedDict([
                                         ('Reward', rewards_1),
                                         ('Value',value_1),                                      
@@ -299,53 +300,62 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
             n_predictors = X_1.shape[1]
             y_1 = firing_rates_1.reshape([len(firing_rates_1),-1]) # Activity matrix [n_trials, n_neurons*n_timepoints]
             tstats,x = regression_code_session(y_1, X_1)
-    
+          #  C_1.append((tstats/np.sqrt(x)).reshape(n_predictors,n_neurons,n_timepoints)) # Predictor loadings
             C_1.append(tstats.reshape(n_predictors,n_neurons,n_timepoints)) # Predictor loadings
+
             
+            rewards_2 = reward_current[n:][task_2]
+            choices_2 = choices_current[n:][task_2]
             
-            rewards_2 = reward_current[task_2]
-            choices_2 = choices_current[task_2]
-            
-            previous_rewards_2 = scipy.linalg.toeplitz(rewards_2, np.zeros((1,n)))[n-1:-1]      
-            previous_choices_2 = scipy.linalg.toeplitz(0.5-choices_2, np.zeros((1,n)))[n-1:-1]        
-            interactions_2 = scipy.linalg.toeplitz((((0.5-choices_2)*(rewards_2-0.5))*2),np.zeros((1,n)))[n-1:-1]
+            # previous_rewards_2 = scipy.linalg.toeplitz(rewards_2, np.zeros((1,n)))[n-1:-1]      
+            # previous_choices_2 = scipy.linalg.toeplitz(0.5-choices_2, np.zeros((1,n)))[n-1:-1]        
+            # interactions_2 = scipy.linalg.toeplitz((((0.5-choices_2)*(rewards_2-0.5))*2),np.zeros((1,n)))[n-1:-1]
              
     
-            ones = np.ones(len(interactions_2)).reshape(len(interactions_2),1)
+            # ones = np.ones(len(interactions_2)).reshape(len(interactions_2),1)
              
-            X_2 = np.hstack([previous_rewards_2,previous_choices_2,interactions_2,ones])
-            value_2 =np.matmul(X_2, average)
+            # X_2 = np.hstack([previous_rewards_2,previous_choices_2,interactions_2,ones])
+            # value_2 =np.matmul(X_2, average)
+    
+            # rewards_2 = rewards_2[n:]
+            # choices_2 = choices_2[n:]
             
-            rewards_2 = rewards_2[n:]
-            choices_2 = choices_2[n:]
+            value_2 = value[task_2]
+
             
             ones_2 = np.ones(len(choices_2))
             trials_2 = len(choices_2)
     
-            firing_rates_2 = firing_rates[task_2][n:]              
+            firing_rates_2 = firing_rates[task_2]#[n:]              
      
             a_2 = np.where(choices_2 == 0.5)[0]
             b_2 = np.where(choices_2 == -0.5)[0]
             
+            state_2_a = np.where(state_2 == 1)[0]
+            state_2_b = np.where(state_2 == 0)[0]
+            
+            d_a_2 = np.where(np.diff(state_2_a)!=1)[0][0]
+            d_b_2 = np.where(np.diff(state_2_b)!=1)[0][0]
+           
+         
+            state_2_a_1 = state_2_a[:d_a_2]
+            state_2_a_2 = state_2_a[d_a_2:]
+            
+            state_2_b_1 = state_2_b[:d_b_2]
+            state_2_b_2 = state_2_b[d_b_2:]
+           
             if plot_a == True:
                 
-                mean = np.mean(value_2[a_2])
-    
-                value_high = np.where(value_2 < mean)
-                low_high = np.where(value_2 >= mean)
-               
-                ind_st_b = np.intersect1d(value_high,a_2)
-                ind_st_a = np.intersect1d(low_high,a_2)
                  
-                ind_1_b = ind_st_b[:int(len(ind_st_b)/2)]
-                ind_2_b =  ind_st_b[int(len(ind_st_b)/2):]
+                
+                ind_1_b = np.intersect1d(state_2_b_1,a_2)
+                ind_2_b =  np.intersect1d(state_2_b_2,a_2)
                
-                ind_1_a = ind_st_a[:int(len(ind_st_a)/2)]
-                ind_2_a =  ind_st_a[int(len(ind_st_a)/2):]
-               
-
-                ind_1 = np.concatenate((ind_1_b,ind_1_a))
-                ind_2 = np.concatenate((ind_2_b,ind_2_a))
+                ind_1_a = np.intersect1d(state_2_a_1,a_2)
+                ind_2_a = np.intersect1d(state_2_a_2,a_2)
+                
+                ind_1 = sorted(np.concatenate((ind_1_b,ind_1_a)))
+                ind_2 = sorted(np.concatenate((ind_2_b,ind_2_a))) 
              
                 if first_half == 1:
                     rewards_2 = rewards_2[ind_1] 
@@ -365,24 +375,17 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
               
             elif plot_b == True:
                 
-                mean = np.mean(value_2[b_2])
-
-                value_high = np.where(value_2 < mean)
-                low_high = np.where(value_2 >= mean)
+                 
+                   
+                ind_1_b = np.intersect1d(state_2_b_1,b_2)
+                ind_2_b =  np.intersect1d(state_2_b_2,b_2)
                
-                ind_st_b = np.intersect1d(value_high,b_2)
-                ind_st_a = np.intersect1d(low_high,b_2)
-               
+                ind_1_a = np.intersect1d(state_2_a_1,b_2)
+                ind_2_a = np.intersect1d(state_2_a_2,b_2)
                 
-                ind_1_b = ind_st_b[:int(len(ind_st_b)/2)]
-                ind_2_b =  ind_st_b[int(len(ind_st_b)/2):]
-               
-                ind_1_a = ind_st_a[:int(len(ind_st_a)/2)]
-                ind_2_a =  ind_st_a[int(len(ind_st_a)/2):]
-              
-                ind_1 = np.concatenate((ind_1_b,ind_1_a))
-                ind_2 = np.concatenate((ind_2_b,ind_2_a))
-               
+                ind_1 = sorted(np.concatenate((ind_1_b,ind_1_a)))
+                ind_2 = sorted(np.concatenate((ind_2_b,ind_2_a)))
+                
                 if first_half == 1:
                     rewards_2 = rewards_2[ind_1] 
                     choices_2 = choices_2[ind_1]    
@@ -400,7 +403,8 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
             
              
            
-                        
+          #  value_2 = value_2 - np.mean(value_2)
+              
             predictors_all = OrderedDict([
                                         ('Reward', rewards_2),
                                         ('Value',value_2),                                   
@@ -412,57 +416,70 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
             y_2 = firing_rates_2.reshape([len(firing_rates_2),-1]) # Activity matrix [n_trials, n_neurons*n_timepoints]
             tstats,x = regression_code_session(y_2, X_2)
 
+           # C_2.append((tstats/np.sqrt(x)).reshape(n_predictors,n_neurons,n_timepoints)) # Predictor loadings
             C_2.append(tstats.reshape(n_predictors,n_neurons,n_timepoints)) # Predictor loadings
-      
+
         
             
-            rewards_3 = reward_current[task_3]
-            choices_3 = choices_current[task_3]
+            rewards_3 = reward_current[n:][task_3]
+            choices_3 = choices_current[n:][task_3]
             
-            previous_rewards_3 = scipy.linalg.toeplitz(rewards_3, np.zeros((1,n)))[n-1:-1]
+            # previous_rewards_3 = scipy.linalg.toeplitz(rewards_3, np.zeros((1,n)))[n-1:-1]
              
-            previous_choices_3 = scipy.linalg.toeplitz(0.5-choices_3, np.zeros((1,n)))[n-1:-1]
+            # previous_choices_3 = scipy.linalg.toeplitz(0.5-choices_3, np.zeros((1,n)))[n-1:-1]
              
-            interactions_3 = scipy.linalg.toeplitz((((0.5-choices_3)*(rewards_3-0.5))*2),np.zeros((1,n)))[n-1:-1]
+            # interactions_3 = scipy.linalg.toeplitz((((0.5-choices_3)*(rewards_3-0.5))*2),np.zeros((1,n)))[n-1:-1]
              
     
-            ones = np.ones(len(interactions_3)).reshape(len(interactions_3),1)
+            # ones = np.ones(len(interactions_3)).reshape(len(interactions_3),1)
              
-            X_3 = np.hstack([previous_rewards_3,previous_choices_3,interactions_3,ones])
-            value_3 =np.matmul(X_3, average)
+            # X_3 = np.hstack([previous_rewards_3,previous_choices_3,interactions_3,ones])
+            # value_3 =np.matmul(X_3, average)
+            
+            # rewards_3 = rewards_3[n:]
+            # choices_3 = choices_3[n:]
        
-            rewards_3 = rewards_3[n:]
-            choices_3 = choices_3[n:]
-       
-             
+            value_3 = value[task_3]
+
             ones_3 = np.ones(len(choices_3))
             trials_3 = len(choices_3)
     
-            firing_rates_3 = firing_rates[task_3][n:]
+            firing_rates_3 = firing_rates[task_3]#[n:]
             
         
             a_3 = np.where(choices_3 == 0.5)[0]
             b_3 = np.where(choices_3 == -0.5)[0]
+            
+            state_3_a = np.where(state_3 == 1)[0]
+            state_3_b = np.where(state_3 == 0)[0]
+            
+            d_a_3 = np.where(np.diff(state_3_a)!=1)[0][0]
+            d_b_3 = np.where(np.diff(state_3_b)!=1)[0][0]
+           
+         
+            state_3_a_1 = state_3_a[:d_a_3]
+            state_3_a_2 = state_3_a[d_a_3:]
+            
+            state_3_b_1 = state_3_b[:d_b_3]
+            state_3_b_2 = state_3_b[d_b_3:]
+           
+           
             if plot_a == True:
-                mean = np.mean(value_3[a_3])
-
-                value_high = np.where(value_3 < mean)
-                low_high = np.where(value_3 >= mean)
+                
+                 
+                
+                ind_1_b = np.intersect1d(state_3_b_1,a_3)
+                ind_2_b =  np.intersect1d(state_3_b_2,a_3)
                
-                ind_st_b = np.intersect1d(value_high,a_3)
-                ind_st_a = np.intersect1d(low_high,a_3)
-            
+                ind_1_a = np.intersect1d(state_3_a_1,a_3)
+                ind_2_a = np.intersect1d(state_3_a_2,a_3)
                 
-                ind_1_b = ind_st_b[:int(len(ind_st_b)/2)]
-                ind_2_b =  ind_st_b[int(len(ind_st_b)/2):]
-               
-                ind_1_a = ind_st_a[:int(len(ind_st_a)/2)]
-                ind_2_a =  ind_st_a[int(len(ind_st_a)/2):]
+                 
                 
-                ind_1 = np.concatenate((ind_1_b,ind_1_a))
-                ind_2 = np.concatenate((ind_2_b,ind_2_a))
+                          
+                ind_1 = sorted(np.concatenate((ind_1_b,ind_1_a)))
+                ind_2 = sorted(np.concatenate((ind_2_b,ind_2_a)))
                 
-            
                 if first_half == 1:
                     rewards_3 = rewards_3[ind_1] 
                     choices_3 = choices_3[ind_1]    
@@ -483,23 +500,17 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
               
             elif plot_b == True:
                 
-                mean = np.mean(value_3[b_3])
-
-                value_high = np.where(value_3 < mean)
-                low_high = np.where(value_3 >= mean)
+                   
+                ind_1_b = np.intersect1d(state_3_b_1,b_3)
+                ind_2_b =  np.intersect1d(state_3_b_2,b_3)
                
-                ind_st_b = np.intersect1d(value_high,b_3)
-                ind_st_a = np.intersect1d(low_high,b_3)
+                ind_1_a = np.intersect1d(state_3_a_1,b_3)
+                ind_2_a = np.intersect1d(state_3_a_2,b_3)
                  
-                ind_1_b = ind_st_b[:int(len(ind_st_b)/2)]
-                ind_2_b =  ind_st_b[int(len(ind_st_b)/2):]
-               
-                ind_1_a = ind_st_a[:int(len(ind_st_a)/2)]
-                ind_2_a =  ind_st_a[int(len(ind_st_a)/2):]
-              
-                ind_1 = np.concatenate((ind_1_b,ind_1_a))
-                ind_2 = np.concatenate((ind_2_b,ind_2_a))
-               
+                 
+                ind_1 = sorted(np.concatenate((ind_1_b,ind_1_a)))
+                ind_2 = sorted(np.concatenate((ind_2_b,ind_2_a)))
+                    
                 if first_half == 1:
                     rewards_3 = rewards_3[ind_1] 
                     choices_3 = choices_3[ind_1]    
@@ -518,9 +529,7 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
                     firing_rates_3 = firing_rates_3[ind_2]   
 
              
-                   
-         
-  
+                     
             predictors_all = OrderedDict([
                                         ('Rew', rewards_3),
                                         ('Value',value_3),                                      
@@ -529,24 +538,26 @@ def value_reg_svd(data, n = 10, plot_a = False, plot_b = False,  first_half = 1,
             X_3 = np.vstack(predictors_all.values()).T[:trials_3,:].astype(float)
             y_3 = firing_rates_3.reshape([len(firing_rates_3),-1]) # Activity matrix [n_trials, n_neurons*n_timepoints]
             tstats,x = regression_code_session(y_3, X_3)
-    
             C_3.append(tstats.reshape(n_predictors,n_neurons,n_timepoints)) # Predictor loadings
-           
+
+            #C_3.append((tstats/np.sqrt(x)).reshape(n_predictors,n_neurons,n_timepoints)) # Predictor loadings
+
     C_1 = np.concatenate(C_1,1)
     C_2 = np.concatenate(C_2,1)
     C_3 = np.concatenate(C_3,1)
-    
-      
    
-
-      
     return C_1,C_2,C_3
 
 
 def plot():
-    real_vs_shuffle(PFC,HP, n = 11,perm_n = 5000, a_b = 0,   c = 'grey')
-    real_vs_shuffle(PFC,HP, n = 11, perm_n = 5000, a_b = 1,  c = 'grey')
-    real_vs_shuffle(PFC,HP, n = 11, perm_n = 5000, a_b = 2,  c = 'grey')
+    for n in range(2,10):
+        real_vs_shuffle(PFC,HP, n = 10, perm_n = 1, a_b = 0,  c = 'grey')
+
+    real_vs_shuffle(PFC,HP, n = 10, perm_n = 1, a_b = 1,  c = 'grey')
+    real_vs_shuffle(PFC,HP, n = 10, perm_n = 1, a_b = 2,  c = 'grey')
+    
+  
+
 
 def real_vs_shuffle(PFC,HP, n = 11, perm_n = 2, a_b = 2,   c = 'grey'):
   
@@ -566,7 +577,8 @@ def real_vs_shuffle(PFC,HP, n = 11, perm_n = 2, a_b = 2,   c = 'grey'):
     uv_95 = np.percentile(diff_uv,95)
     v95 = np.percentile(diff_v,95)
     u95 = np.percentile(diff_u,95)
- 
+    
+   # a_b = 
     u_v_hp, u_hp, v_hp, within_u_hp,between_u_hp,within_v_hp,between_v_hp,within_uv_hp,between_uv_hp = real_diff(HP, n = n, a = 'HP', task = 0,a_b = a_b)
     u_v_pfc, u_pfc, v_pfc,within_u_pfc,between_u_pfc,within_v_pfc,between_v_pfc,within_uv_pfc,between_uv_pfc = real_diff(PFC, n = n, a = 'PFC', task = 0,a_b = a_b)
     
@@ -608,7 +620,7 @@ def real_vs_shuffle(PFC,HP, n = 11, perm_n = 2, a_b = 2,   c = 'grey'):
     u95_2 = np.percentile(diff_u_2,95)
  
     u_v_hp_2, u_hp_2, v_hp_2,  within_u_hp_2, between_u_hp_2, within_v_hp_2 ,between_v_hp_2, within_uv_hp_2, between_uv_hp_2 = real_diff(HP, n = n, a = 'HP', task = 2, a_b = a_b)
-    u_v_pfc_2, u_pfc_2, v_pfc_2, within_u_pfc_2, between_u_pfc_2, within_v_pfc_2, between_v_pfc_2, within_uv_pfc_2, between_uv_pfc_2  = real_diff(PFC, n = n, a = 'PFC', task = 2,a_b = a_b)
+    u_v_pfc_2, u_pfc_2, v_pfc_2, within_u_pfc_2, between_u_pfc_2, within_v_pfc_2, between_v_pfc_2, within_uv_pfc_2, between_uv_pfc_2  = real_diff(PFC, n = n, a = 'PFC', task = 2, a_b = a_b)
     
     real_uv_2 = u_v_hp_2-u_v_pfc_2
     real_u_2 = u_hp_2-u_pfc_2
@@ -797,27 +809,86 @@ def svd_on_coefs(PFC,HP, n = 11, task = 0, perm_n = 10, a_b = 0):
             C_1_b_2_all, C_2_b_2_all, C_3_b_2_all = value_reg_svd(d, n = n, plot_a = False, plot_b = True,  first_half = 2, a = 'perm', perm = True, t = task)     
             C_1_a_2_all, C_2_a_2_all, C_3_a_2_all = value_reg_svd(d, n = n, plot_a = True, plot_b = False,  first_half = 2, a = 'perm', perm = True, t = task)    
              
+            xis = 1
+            C_2_inf_a1 = [~np.isinf(C_2_a_1_all[xis]).any(axis=1)]; C_2_nan_a1 = [~np.isnan(C_2_a_1_all[xis]).any(axis=1)]
+            C_3_inf_a1= [~np.isinf(C_3_a_1_all[xis]).any(axis=1)];  C_3_nan_a1 = [~np.isnan(C_3_a_1_all[xis]).any(axis=1)]
+            C_1_inf_a1 = [~np.isinf(C_1_a_1_all[xis]).any(axis=1)];  C_1_nan_a1 = [~np.isnan(C_1_a_1_all[xis]).any(axis=1)]
+              
+            C_2_inf_a2 = [~np.isinf(C_2_a_2_all[xis]).any(axis=1)]; C_2_nan_a2 = [~np.isnan(C_2_a_2_all[xis]).any(axis=1)]
+            C_3_inf_a2= [~np.isinf(C_3_a_2_all[xis]).any(axis=1)];  C_3_nan_a2 = [~np.isnan(C_3_a_2_all[xis]).any(axis=1)]
+            C_1_inf_a2 = [~np.isinf(C_1_a_2_all[xis]).any(axis=1)];  C_1_nan_a2 = [~np.isnan(C_1_a_2_all[xis]).any(axis=1)]
+            
+            C_2_inf_b1 = [~np.isinf(C_2_b_1_all[xis]).any(axis=1)]; C_2_nan_b1 = [~np.isnan(C_2_b_1_all[xis]).any(axis=1)]
+            C_3_inf_b1= [~np.isinf(C_3_b_1_all[xis]).any(axis=1)];  C_3_nan_b1 = [~np.isnan(C_3_b_1_all[xis]).any(axis=1)]
+            C_1_inf_b1 = [~np.isinf(C_1_b_1_all[xis]).any(axis=1)];  C_1_nan_b1 = [~np.isnan(C_1_b_1_all[xis]).any(axis=1)]
+              
+            C_2_inf_b2 = [~np.isinf(C_2_b_2_all[xis]).any(axis=1)]; C_2_nan_b2 = [~np.isnan(C_2_b_2_all[xis]).any(axis=1)]
+            C_3_inf_b2= [~np.isinf(C_3_b_2_all[xis]).any(axis=1)];  C_3_nan_b2 = [~np.isnan(C_3_b_2_all[xis]).any(axis=1)]
+            C_1_inf_b2 = [~np.isinf(C_1_b_2_all[xis]).any(axis=1)];  C_1_nan_b2 = [~np.isnan(C_1_b_2_all[xis]).any(axis=1)]
+            
+            m = 20
+            C_2_a1 = (abs(np.max(C_2_a_1_all[xis,:,:],1))<m); C_2_a2 = (abs(np.max(C_2_a_2_all[xis,:,:],1))<m)
+            C_3_a1 = (abs(np.max(C_3_a_1_all[xis,:,:],1))<m); C_3_a2 = (abs(np.max(C_3_a_2_all[xis,:,:],1))<m)
+            C_1_a1 = (abs(np.max(C_3_a_1_all[xis,:,:],1))<m); C_1_a2 = (abs(np.max(C_1_a_2_all[xis,:,:],1))<m)
+            
+            C_2_b1 = (abs(np.max(C_2_b_1_all[xis,:,:],1))<m); C_2_b2 = (abs(np.max(C_2_b_2_all[xis,:,:],1))<m)
+            C_3_b1 = (abs(np.max(C_3_b_1_all[xis,:,:],1))<m); C_3_b2 = (abs(np.max(C_3_b_2_all[xis,:,:],1))<m)
+            C_1_b1 = (abs(np.max(C_3_b_1_all[xis,:,:],1))<m); C_1_b2 = (abs(np.max(C_1_b_2_all[xis,:,:],1))<m)
+         
+           
+        
+            nans = np.asarray(C_2_inf_a1) & np.asarray(C_3_inf_a1) & np.asarray(C_1_inf_a1)\
+                & np.asarray(C_2_inf_a2) & np.asarray(C_3_inf_a2) & np.asarray(C_1_inf_a2)\
+                & np.asarray(C_2_inf_b1) & np.asarray(C_3_inf_b1) & np.asarray(C_1_inf_b1)\
+                & np.asarray(C_2_inf_b2) & np.asarray(C_3_inf_b2) & np.asarray(C_1_inf_b2)\
+                & np.asarray(C_2_nan_a1) & np.asarray(C_3_nan_a1) & np.asarray(C_1_nan_a1)\
+                & np.asarray(C_2_nan_a2) & np.asarray(C_3_nan_a2) & np.asarray(C_1_nan_a2)\
+                & np.asarray(C_2_nan_b1) & np.asarray(C_3_nan_b1) & np.asarray(C_1_nan_b1)\
+                & np.asarray(C_2_nan_b2) & np.asarray(C_3_nan_b2) & np.asarray(C_1_nan_b2)\
+                & np.asarray(C_2_a1) & np.asarray(C_3_a1) & np.asarray(C_1_a1)\
+                & np.asarray(C_2_a2) & np.asarray(C_3_a2) & np.asarray(C_1_a2)\
+                & np.asarray(C_2_b1) & np.asarray(C_3_b1) & np.asarray(C_1_b1)\
+                & np.asarray(C_2_b2) & np.asarray(C_3_b2) & np.asarray(C_1_b2)
+            
+                    
+            C_1_b_1_all = np.transpose(C_1_b_1_all[:,nans[0],:],[2,0,1]);
+            C_2_b_1_all = np.transpose(C_2_b_1_all[:,nans[0],:],[2,0,1]);
+            C_3_b_1_all = np.transpose(C_3_b_1_all[:,nans[0],:],[2,0,1]);
+         
+            C_1_b_2_all = np.transpose(C_1_b_2_all[:,nans[0],:],[2,0,1]);
+            C_2_b_2_all = np.transpose(C_2_b_2_all[:,nans[0],:],[2,0,1]);
+            C_3_b_2_all = np.transpose(C_3_b_2_all[:,nans[0],:],[2,0,1]);
+         
+            C_1_a_1_all = np.transpose(C_1_a_1_all[:,nans[0],:],[2,0,1]);
+            C_2_a_1_all = np.transpose(C_2_a_1_all[:,nans[0],:],[2,0,1]);
+            C_3_a_1_all = np.transpose(C_3_a_1_all[:,nans[0],:],[2,0,1]);
+         
+            C_1_a_2_all = np.transpose(C_1_a_2_all[:,nans[0],:],[2,0,1]);
+            C_2_a_2_all = np.transpose(C_2_a_2_all[:,nans[0],:],[2,0,1]);
+            C_3_a_2_all = np.transpose(C_3_a_2_all[:,nans[0],:],[2,0,1]);
+
             k = 1
             
-            C_1_b_1_all = scipy.stats.zscore(C_1_b_1_all[k],0)
-            C_1_a_1_all = scipy.stats.zscore(C_1_a_1_all[k],0)
+                
+            C_1_b_1_all = C_1_b_1_all[:,k].T
+            C_1_a_1_all = C_1_a_1_all[:,k].T
          
-            C_1_b_2_all = scipy.stats.zscore(C_1_b_2_all[k],0)
-            C_1_a_2_all = scipy.stats.zscore(C_1_a_2_all[k],0)
+            C_1_b_2_all = C_1_b_2_all[:,k].T
+            C_1_a_2_all = C_1_a_2_all[:,k].T
          
             
-            C_2_b_1_all = scipy.stats.zscore(C_2_b_1_all[k],0)
-            C_2_a_1_all = scipy.stats.zscore(C_2_a_1_all[k],0)
+            C_2_b_1_all = C_2_b_1_all[:,k].T
+            C_2_a_1_all = C_2_a_1_all[:,k].T
          
-            C_2_b_2_all = scipy.stats.zscore(C_2_b_2_all[k],0)
-            C_2_a_2_all = scipy.stats.zscore(C_2_a_2_all[k],0)
+            C_2_b_2_all = C_2_b_2_all[:,k].T
+            C_2_a_2_all = C_2_a_2_all[:,k].T
          
-            C_3_b_1_all = scipy.stats.zscore(C_3_b_1_all[k],0)
-            C_3_a_1_all = scipy.stats.zscore(C_3_a_1_all[k],0)
+            C_3_b_1_all = C_3_b_1_all[:,k].T
+            C_3_a_1_all = C_3_a_1_all[:,k].T
          
-            C_3_b_2_all = scipy.stats.zscore(C_3_b_2_all[k],0)
-            C_3_a_2_all = scipy.stats.zscore(C_3_a_2_all[k],0)
-         
+            C_3_b_2_all = C_3_b_2_all[:,k].T
+            C_3_a_2_all = C_3_a_2_all[:,k].T
+        
             value_1_1 = (np.concatenate((C_1_b_1_all, C_1_a_1_all),1))
             value_1_2 = (np.concatenate((C_1_b_2_all, C_1_a_2_all),1))
             value_2_1 = (np.concatenate((C_2_b_1_all, C_2_a_1_all),1))
@@ -862,22 +933,22 @@ def svd_on_coefs(PFC,HP, n = 11, task = 0, perm_n = 10, a_b = 0):
                    
             n_neurons = value_1_1.shape[0]
             
-            u_t1_1, s_t1_1, vh_t1_1 = np.linalg.svd(value_1_1, full_matrices = False)
+            u_t1_1, s_t1_1, vh_t1_1 = np.linalg.svd(value_1_1, full_matrices = True)
                 
             #SVDsu.shape, s.shape, vh.shape for task 1 second half
-            u_t1_2, s_t1_2, vh_t1_2 = np.linalg.svd(value_1_2, full_matrices = False)
+            u_t1_2, s_t1_2, vh_t1_2 = np.linalg.svd(value_1_2, full_matrices = True)
             
             #SVDsu.shape, s.shape, vh.shape for task 2 first half
-            u_t2_1, s_t2_1, vh_t2_1 = np.linalg.svd(value_2_1, full_matrices = False)
+            u_t2_1, s_t2_1, vh_t2_1 = np.linalg.svd(value_2_1, full_matrices = True)
             
             #SVDsu.shape, s.shape, vh.shape for task 2 second half
-            u_t2_2, s_t2_2, vh_t2_2 = np.linalg.svd(value_2_2, full_matrices = False)
+            u_t2_2, s_t2_2, vh_t2_2 = np.linalg.svd(value_2_2, full_matrices = True)
             
             #SVDsu.shape, s.shape, vh.shape for task 3 first half
-            u_t3_1, s_t3_1, vh_t3_1 = np.linalg.svd(value_3_1, full_matrices = False)
+            u_t3_1, s_t3_1, vh_t3_1 = np.linalg.svd(value_3_1, full_matrices = True)
         
             #SVDsu.shape, s.shape, vh.shape for task 3 first half
-            u_t3_2, s_t3_2, vh_t3_2 = np.linalg.svd(value_3_2, full_matrices = False)
+            u_t3_2, s_t3_2, vh_t3_2 = np.linalg.svd(value_3_2, full_matrices = True)
             
             #Finding variance explained in second half of task 1 using the Us and Vs from the first half
             t_u = np.transpose(u_t1_1)  
@@ -1050,37 +1121,121 @@ def svd_on_coefs(PFC,HP, n = 11, task = 0, perm_n = 10, a_b = 0):
    
 
     
-def real_diff(d, n = 11, a = 'HP', task =0, a_b = 0):
+def real_diff(d, n = 11, a = 'HP', task = 0, a_b = 0):
 
-    C_1_b_1_all, C_2_b_1_all, C_3_b_1_all = value_reg_svd(d, n = n, plot_a = False, plot_b = True,  first_half = 1, a = a, perm = False, t = task)  
-    C_1_a_1_all, C_2_a_1_all, C_3_a_1_all = value_reg_svd(d, n = n, plot_a = True, plot_b = False,  first_half = 1, a = a, perm = False, t = task)    
-    
+
+    C_1_b_1_all, C_2_b_1_all, C_3_b_1_all = value_reg_svd(d, n = n, plot_a = False, plot_b = True,  first_half = 1, a = a, perm = False, t = task)                                                       
+    C_1_a_1_all, C_2_a_1_all, C_3_a_1_all = value_reg_svd(d, n = n, plot_a = True, plot_b = False,  first_half = 1, a = a, perm = False, t = task)      
     C_1_b_2_all, C_2_b_2_all, C_3_b_2_all = value_reg_svd(d, n = n, plot_a = False, plot_b = True,  first_half = 2, a = a, perm = False, t = task)       
     C_1_a_2_all, C_2_a_2_all, C_3_a_2_all = value_reg_svd(d, n = n, plot_a = True, plot_b = False,  first_half = 2, a = a, perm = False, t = task)      
+       
+
+    xis = 1
+    C_2_inf_a1 = [~np.isinf(C_2_a_1_all[xis]).any(axis=1)]; C_2_nan_a1 = [~np.isnan(C_2_a_1_all[xis]).any(axis=1)]
+    C_3_inf_a1= [~np.isinf(C_3_a_1_all[xis]).any(axis=1)];  C_3_nan_a1 = [~np.isnan(C_3_a_1_all[xis]).any(axis=1)]
+    C_1_inf_a1 = [~np.isinf(C_1_a_1_all[xis]).any(axis=1)];  C_1_nan_a1 = [~np.isnan(C_1_a_1_all[xis]).any(axis=1)]
+      
+    C_2_inf_a2 = [~np.isinf(C_2_a_2_all[xis]).any(axis=1)]; C_2_nan_a2 = [~np.isnan(C_2_a_2_all[xis]).any(axis=1)]
+    C_3_inf_a2= [~np.isinf(C_3_a_2_all[xis]).any(axis=1)];  C_3_nan_a2 = [~np.isnan(C_3_a_2_all[xis]).any(axis=1)]
+    C_1_inf_a2 = [~np.isinf(C_1_a_2_all[xis]).any(axis=1)];  C_1_nan_a2 = [~np.isnan(C_1_a_2_all[xis]).any(axis=1)]
     
+    C_2_inf_b1 = [~np.isinf(C_2_b_1_all[xis]).any(axis=1)]; C_2_nan_b1 = [~np.isnan(C_2_b_1_all[xis]).any(axis=1)]
+    C_3_inf_b1= [~np.isinf(C_3_b_1_all[xis]).any(axis=1)];  C_3_nan_b1 = [~np.isnan(C_3_b_1_all[xis]).any(axis=1)]
+    C_1_inf_b1 = [~np.isinf(C_1_b_1_all[xis]).any(axis=1)];  C_1_nan_b1 = [~np.isnan(C_1_b_1_all[xis]).any(axis=1)]
+      
+    C_2_inf_b2 = [~np.isinf(C_2_b_2_all[xis]).any(axis=1)]; C_2_nan_b2 = [~np.isnan(C_2_b_2_all[xis]).any(axis=1)]
+    C_3_inf_b2= [~np.isinf(C_3_b_2_all[xis]).any(axis=1)];  C_3_nan_b2 = [~np.isnan(C_3_b_2_all[xis]).any(axis=1)]
+    C_1_inf_b2 = [~np.isinf(C_1_b_2_all[xis]).any(axis=1)];  C_1_nan_b2 = [~np.isnan(C_1_b_2_all[xis]).any(axis=1)]
+    
+    m = 100
+    s = -100
+    
+    C_2_a1 = ((abs(np.max(C_2_a_1_all[xis,:,:],1))<m) & (abs(np.max(C_2_a_1_all[xis,:,:],1))>s )); C_2_a2 = ((abs(np.max(C_2_a_2_all[xis,:,:],1))<m) & (abs(np.max(C_2_a_2_all[xis,:,:],1))>s ));
+    C_3_a1 = ((abs(np.max(C_3_a_1_all[xis,:,:],1))<m) & (abs(np.max(C_3_a_1_all[xis,:,:],1))>s )); C_3_a2 = ((abs(np.max(C_3_a_2_all[xis,:,:],1))<m) & (abs(np.max(C_3_a_2_all[xis,:,:],1))>s ));
+    C_1_a1 = ((abs(np.max(C_1_a_1_all[xis,:,:],1))<m) & (abs(np.max(C_1_a_1_all[xis,:,:],1))>s )); C_1_a2 = ((abs(np.max(C_1_a_2_all[xis,:,:],1))<m) & (abs(np.max(C_1_a_2_all[xis,:,:],1))>s ));
+
+   
+    C_2_b1 = ((abs(np.max(C_2_b_1_all[xis,:,:],1))<m) & (abs(np.max(C_2_b_1_all[xis,:,:],1))>s )); C_2_b2 = ((abs(np.max(C_2_b_2_all[xis,:,:],1))<m) & (abs(np.max(C_2_b_2_all[xis,:,:],1))>s ));
+    C_3_b1 = ((abs(np.max(C_3_b_1_all[xis,:,:],1))<m) & (abs(np.max(C_3_b_1_all[xis,:,:],1))>s )); C_3_b2 = ((abs(np.max(C_3_b_2_all[xis,:,:],1))<m) & (abs(np.max(C_3_b_2_all[xis,:,:],1))>s ));
+    C_1_b1 = ((abs(np.max(C_1_b_1_all[xis,:,:],1))<m) & (abs(np.max(C_1_b_1_all[xis,:,:],1))>s )); C_1_b2 = ((abs(np.max(C_1_b_2_all[xis,:,:],1))<m) & (abs(np.max(C_1_b_2_all[xis,:,:],1))>s ));
+
+
+    nans = np.asarray(C_2_inf_a1) & np.asarray(C_3_inf_a1) & np.asarray(C_1_inf_a1)\
+        & np.asarray(C_2_inf_a2) & np.asarray(C_3_inf_a2) & np.asarray(C_1_inf_a2)\
+        & np.asarray(C_2_inf_b1) & np.asarray(C_3_inf_b1) & np.asarray(C_1_inf_b1)\
+        & np.asarray(C_2_inf_b2) & np.asarray(C_3_inf_b2) & np.asarray(C_1_inf_b2)\
+        & np.asarray(C_2_nan_a1) & np.asarray(C_3_nan_a1) & np.asarray(C_1_nan_a1)\
+        & np.asarray(C_2_nan_a2) & np.asarray(C_3_nan_a2) & np.asarray(C_1_nan_a2)\
+        & np.asarray(C_2_nan_b1) & np.asarray(C_3_nan_b1) & np.asarray(C_1_nan_b1)\
+        & np.asarray(C_2_nan_b2) & np.asarray(C_3_nan_b2) & np.asarray(C_1_nan_b2)\
+        & np.asarray(C_2_a1) & np.asarray(C_3_a1) & np.asarray(C_1_a1)\
+        & np.asarray(C_2_a2) & np.asarray(C_3_a2) & np.asarray(C_1_a2)\
+        & np.asarray(C_2_b1) & np.asarray(C_3_b1) & np.asarray(C_1_b1)\
+        & np.asarray(C_2_b2) & np.asarray(C_3_b2) & np.asarray(C_1_b2)
+            
+    C_1_b_1_all = np.transpose(C_1_b_1_all[:,nans[0],:],[2,0,1])
+    C_2_b_1_all = np.transpose(C_2_b_1_all[:,nans[0],:],[2,0,1])
+    C_3_b_1_all = np.transpose(C_3_b_1_all[:,nans[0],:],[2,0,1])
+ 
+    C_1_b_2_all = np.transpose(C_1_b_2_all[:,nans[0],:],[2,0,1])
+    C_2_b_2_all = np.transpose(C_2_b_2_all[:,nans[0],:],[2,0,1])
+    C_3_b_2_all = np.transpose(C_3_b_2_all[:,nans[0],:],[2,0,1])
+ 
+    C_1_a_1_all = np.transpose(C_1_a_1_all[:,nans[0],:],[2,0,1])
+    C_2_a_1_all = np.transpose(C_2_a_1_all[:,nans[0],:],[2,0,1])
+    C_3_a_1_all = np.transpose(C_3_a_1_all[:,nans[0],:],[2,0,1])
+ 
+    C_1_a_2_all = np.transpose(C_1_a_2_all[:,nans[0],:],[2,0,1])
+    C_2_a_2_all = np.transpose(C_2_a_2_all[:,nans[0],:],[2,0,1])
+    C_3_a_2_all = np.transpose(C_3_a_2_all[:,nans[0],:],[2,0,1])
+
+    # c1_a1 = np.mean(C_1_a_1_all[:,1]**2,1)
+    # c2_a1 = np.mean(C_2_a_1_all[:,1]**2,1)
+    # c3_a1 = np.mean(C_3_a_1_all[:,1]**2,1)
+
+    # c1_a2 = np.mean(C_1_a_2_all[:,1]**2,1)
+    # c2_a2 = np.mean(C_2_a_2_all[:,1]**2,1)
+    # c3_a2 = np.mean(C_3_a_2_all[:,1]**2,1)
+
+    # c1_b1 = np.mean(C_1_b_1_all[:,1]**2,1)
+    # c2_b1 = np.mean(C_2_b_1_all[:,1]**2,1)
+    # c3_b1 = np.mean(C_3_b_1_all[:,1]**2,1)
+
+    # c1_b2 = np.mean(C_1_b_2_all[:,1]**2,1)
+    # c2_b2 = np.mean(C_2_b_2_all[:,1]**2,1)
+    # c3_b2 = np.mean(C_3_b_2_all[:,1]**2,1)
+
+    # plots = [c1_a1,c2_a1,c3_a1, c1_a2,c2_a2,c3_a2,c1_b1,c2_b1,c3_b1, c1_b2,c2_b2,c3_b2 ]
+    # for p in plots:
+    #     plt.plot(p)
+    #     plt.title(str(task))
+    #     sns.despine()
+   
   
 
     k = 1
     
-    C_1_b_1_all = scipy.stats.zscore(C_1_b_1_all[k],0)
-    C_1_a_1_all = scipy.stats.zscore(C_1_a_1_all[k],0)
+    ns = -0 
+    
+    C_1_b_1_all = C_1_b_1_all[:,k,ns:].T
+    C_1_a_1_all = C_1_a_1_all[:,k,ns:].T
  
-    C_1_b_2_all = scipy.stats.zscore(C_1_b_2_all[k],0)
-    C_1_a_2_all = scipy.stats.zscore(C_1_a_2_all[k],0)
+    C_1_b_2_all = C_1_b_2_all[:,k,ns:].T
+    C_1_a_2_all = C_1_a_2_all[:,k,ns:].T
  
     
-    C_2_b_1_all = scipy.stats.zscore(C_2_b_1_all[k],0)
-    C_2_a_1_all = scipy.stats.zscore(C_2_a_1_all[k],0)
+    C_2_b_1_all = C_2_b_1_all[:,k,ns:].T
+    C_2_a_1_all = C_2_a_1_all[:,k,ns:].T
  
-    C_2_b_2_all = scipy.stats.zscore(C_2_b_2_all[k],0)
-    C_2_a_2_all = scipy.stats.zscore(C_2_a_2_all[k],0)
+    C_2_b_2_all = C_2_b_2_all[:,k,ns:].T
+    C_2_a_2_all = C_2_a_2_all[:,k,ns:].T
  
-    C_3_b_1_all = scipy.stats.zscore(C_3_b_1_all[k],0)
-    C_3_a_1_all = scipy.stats.zscore(C_3_a_1_all[k],0)
+    C_3_b_1_all = C_3_b_1_all[:,k,ns:].T
+    C_3_a_1_all = C_3_a_1_all[:,k,ns:].T
  
-    C_3_b_2_all = scipy.stats.zscore(C_3_b_2_all[k],0)
-    C_3_a_2_all = scipy.stats.zscore(C_3_a_2_all[k],0)
-    
+    C_3_b_2_all = C_3_b_2_all[:,k,ns:].T
+    C_3_a_2_all = C_3_a_2_all[:,k,ns:].T
+
     if a_b == 0:
  
         value_1_1 = (np.concatenate((C_1_b_1_all, C_1_a_1_all),1))
@@ -1090,6 +1245,7 @@ def real_diff(d, n = 11, a = 'HP', task =0, a_b = 0):
     
         value_3_1 = (np.concatenate((C_3_b_1_all, C_3_a_1_all),1))
         value_3_2 = (np.concatenate((C_3_b_2_all, C_3_a_2_all),1))
+        
     elif a_b == 1:
  
         value_1_1 = C_1_b_1_all
@@ -1111,6 +1267,7 @@ def real_diff(d, n = 11, a = 'HP', task =0, a_b = 0):
         value_3_2 = C_3_a_2_all
  
     n_neurons = value_1_1.shape[0]
+    
     
     u_t1_1, s_t1_1, vh_t1_1 = np.linalg.svd(value_1_1, full_matrices = False)
         
@@ -1318,4 +1475,18 @@ def real_diff(d, n = 11, a = 'HP', task =0, a_b = 0):
         between_uv = average_between_2_3
    
     return u_v_area, u_area,v_area,within_u,between_u,within_v,between_v,within_uv,between_uv
+
+
+def _CPD(X,y):
+    '''Evaluate coefficient of partial determination for each predictor in X'''
+    ols = LinearRegression(copy_X = True,fit_intercept= False)
+    ols.fit(X,y)
+    sse = np.sum((ols.predict(X) - y)**2, axis=0)
+    cpd = np.zeros([y.shape[1],X.shape[1]])
+    for i in range(X.shape[1]):
+        X_i = np.delete(X,i,axis=1)
+        ols.fit(X_i,y)
+        sse_X_i = np.sum((ols.predict(X_i) - y)**2, axis=0)
+        cpd[:,i]=(sse_X_i-sse)/sse_X_i
+    return cpd
 

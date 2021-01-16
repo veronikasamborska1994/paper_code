@@ -40,10 +40,74 @@ def load():
     cmap =  palettable.scientific.sequential.Acton_3.mpl_colormap
 
 
-def heatplot_sort(data, ch = 1, task_1_2  =  True, task_1_3 =  False, task_2_3 =  False): 
+def task_ind(task, a_pokes, b_pokes):
+    
+    """ Create Task IDs for that are consistent: in Task 1 A and B at left right extremes, in Task 2 B is one of the diagonal ones, 
+    in Task 3  B is top or bottom """
+    
+    taskid = np.zeros(len(task));
+    taskid[b_pokes == 10 - a_pokes] = 1     
+    taskid[np.logical_or(np.logical_or(b_pokes == 2, b_pokes == 3), np.logical_or(b_pokes == 7, b_pokes == 8))] = 2  
+    taskid[np.logical_or(b_pokes ==  1, b_pokes == 9)] = 3
+         
+  
+    return taskid
+
+
+def correct_order(data, task_1_2 = False, task_2_3 = False, task_1_3 = False, rev = False):
+    
+    y = data['DM'][0]
+    x = data['Data'][0]
+    task_time_confound_data = []
+    task_time_confound_dm = []
+    
+    for  s, sess in enumerate(x):
+        DM = y[s]
+        b_pokes = DM[:,7]
+        a_pokes = DM[:,6]
+        task = DM[:,5]
+        taskid = task_ind(task,a_pokes,b_pokes)
+                
+        if task_1_2  == True:
+            
+            taskid_1 = 1
+            taskid_2 = 2
+            
+        elif task_2_3 == True:
+            
+            taskid_1 = 2
+            taskid_2 = 3
+        
+        elif task_1_3 == True:
+            
+            taskid_1 = 1
+            taskid_2 = 3
+        if rev == False:
+            task_1 = np.where(taskid == taskid_1)[0][-1]
+            task_2 = np.where(taskid == taskid_2)[0][0]
+            if task_1+1 == task_2: #or task_1+1== task_2:
+                task_time_confound_data.append(sess)
+                task_time_confound_dm.append(y[s])
+               
+        else:
+            task_1_rev = np.where(taskid == taskid_1)[0][0]
+            task_2_rev = np.where(taskid == taskid_2)[0][-1]
+            if task_2_rev+1 == task_1_rev:
+    
+                task_time_confound_data.append(sess)
+                task_time_confound_dm.append(y[s])
+    
+          
+    return task_time_confound_data,task_time_confound_dm
+
+
+
+
+def heatplot_sort(data, ch = 1, task_1_2  =  True, task_1_3 =  False, task_2_3 =  False, rev = False, c = 'pink'): 
     
     dm = data['DM'][0]
     fr = data['Data'][0]
+   # fr,dm = correct_order(data, task_1_2 = task_1_2, task_2_3 = task_2_3, task_1_3 = task_1_3, rev = rev)
 
     neurons = 0
     for s in fr:
@@ -109,45 +173,50 @@ def heatplot_sort(data, ch = 1, task_1_2  =  True, task_1_3 =  False, task_2_3 =
   
     ch_1 = np.mean([ch_1_r,ch_1_nr],0)
     ch_2 = np.mean([ch_2_r,ch_2_nr],0)
-
-    ch_1 = ch_1/(np.tile(np.max(ch_1,1), [ch_1.shape[1],1]).T+1e-08)
-#
-    ch_2 = ch_2/(np.tile(np.max(ch_2,1), [ch_2.shape[1],1]).T+1e-08)
-
-    peak_ind_1 = np.argmax(ch_1,1) 
-
-    ordering_1 = np.argsort(peak_ind_1)
-    activity_sorted_1 = ch_1[ordering_1,:]
-    plt.subplot(2,2,1)
-    plt.imshow(activity_sorted_1, aspect='auto', cmap = cmap)  
-    plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
-
- 
-    activity_sorted_2_1 = ch_2[ordering_1,:]
-    plt.subplot(2,2,2)
-    plt.imshow(activity_sorted_2_1, aspect='auto', cmap = cmap)  
-    plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
-
-    peak_ind_2 = np.argmax(ch_2,1)
-    ordering_2 = np.argsort(peak_ind_2)
     
-    activity_sorted_2_2 = ch_2[ordering_2,:]
-    plt.subplot(2,2,4)
-    plt.imshow(activity_sorted_2_2, aspect='auto', cmap = cmap)  
-    plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
 
-    activity_sorted_1_2= ch_1[ordering_2,:]
-    plt.subplot(2,2,3)
-    plt.imshow(activity_sorted_1_2, aspect='auto',cmap = cmap)  
-    plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
+   # ch_1 = ch_1/(np.tile(np.max(ch_1,1), [ch_1.shape[1],1]).T+1e-08)
+
+   # ch_2 = ch_2/(np.tile(np.max(ch_2,1), [ch_2.shape[1],1]).T+1e-08)
+
+    ch_1 = ch_1 - np.mean(ch_1)
+
+    ch_2 = ch_2 - np.mean(ch_2)
+
  
-    choice_argmax = np.where((np.argmax(ch_1,1)> 30) & (np.argmax(ch_1,1) <42))[0]
-    plt.plot()
-   
-    init_argmax_2 = np.where((np.argmax(ch_2,1)> 22) & (np.argmax(ch_2,1) < 28))[0]
+    # peak_ind_1 = np.argmax(ch_1,1) 
+
+    # ordering_1 = np.argsort(peak_ind_1)
+    # activity_sorted_1 = ch_1[ordering_1,:]
+    # plt.subplot(2,2,1)
+    # plt.imshow(activity_sorted_1, aspect='auto', cmap = cmap)  
+    # plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
+
+ 
+    # activity_sorted_2_1 = ch_2[ordering_1,:]
+    # plt.subplot(2,2,2)
+    # plt.imshow(activity_sorted_2_1, aspect='auto', cmap = cmap)  
+    # plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
+
+    # peak_ind_2 = np.argmax(ch_2,1)
+    # ordering_2 = np.argsort(peak_ind_2)
+    
+    # activity_sorted_2_2 = ch_2[ordering_2,:]
+    # plt.subplot(2,2,4)
+    # plt.imshow(activity_sorted_2_2, aspect='auto', cmap = cmap)  
+    # plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
+
+    # activity_sorted_1_2= ch_1[ordering_2,:]
+    # plt.subplot(2,2,3)
+    # plt.imshow(activity_sorted_1_2, aspect='auto',cmap = cmap)  
+    # plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
+ 
+    choice_argmax = np.where((np.argmax(ch_1,1)> 33) & (np.argmax(ch_1,1) < 38))[0]   
+    init_argmax_2 = np.where((np.argmax(ch_2,1)> 23) & (np.argmax(ch_2,1) < 28))[0]
    
     # 2 to 3, B to Initiation
-      
+    print(len(init_argmax_2))
+    print(len(choice_argmax))
     task_1_init = np.mean(ch_1[init_argmax_2],0)
     task_1_init_std = np.std(ch_1[init_argmax_2],0)/np.sqrt(len(ch_1[init_argmax_2]))
 
@@ -156,18 +225,19 @@ def heatplot_sort(data, ch = 1, task_1_2  =  True, task_1_3 =  False, task_2_3 =
     task_2_init_std = np.std(ch_2[choice_argmax],0)/np.sqrt(len(ch_2[choice_argmax]))
 
     # 
-    plt.figure(figsize=(7,3))
+   # plt.figure()
+    plt.figure(1,figsize=(7,3),)
     
     plt.subplot(1,2,1)
-    plt.plot(task_2_choice,color = 'grey')
-    plt.fill_between(np.arange(len(task_2_choice)), task_2_choice-task_2_init_std, task_2_choice+task_2_init_std, alpha=0.2,color = 'grey')
+    plt.plot(task_2_choice,color = c)
+    plt.fill_between(np.arange(len(task_2_choice)), task_2_choice-task_2_init_std, task_2_choice+task_2_init_std, alpha=0.2,color = c)
 
     plt.title('firing in task 3 of cells \n responding to choice in task 2 ')
     plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
 
     plt.subplot(1,2,2)
-    plt.plot(task_1_init,color = 'pink')
-    plt.fill_between(np.arange(len(task_1_init)), task_1_init-task_1_init_std, task_1_init+task_1_init_std, alpha=0.2,color = 'pink')
+    plt.plot(task_1_init,color = c)
+    plt.fill_between(np.arange(len(task_1_init)), task_1_init-task_1_init_std, task_1_init+task_1_init_std, alpha=0.2,color = c)
 
     plt.title('firing in task 2 of cells \n responding to initiation in task 3 ')
     plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    

@@ -146,7 +146,7 @@ def plot_figure(PFC, HP, n = 11, c_1 = 1):
             diff.append(task_mean[i+3]-task_mean[i])
     
 
-    correlation_differences  = perumute_sessions(HP, PFC, c_1 = c_1, n = n, perm_n = 5000, init_t = init_t, ch_t = ch_t, r_t = r_t)
+    correlation_differences  = perumute_sessions(HP, PFC, c_1 = c_1, n = n, perm_n = 2, init_t = init_t, ch_t = ch_t, r_t = r_t)
      
     plt.figure(figsize = (10,15))
     plt.figure(figsize = (5,10))

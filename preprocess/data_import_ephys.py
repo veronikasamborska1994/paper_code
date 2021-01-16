@@ -67,13 +67,13 @@ def import_code(ephys_path,beh_path):
                             behaviour_session.ephys = neurons
                             
                                                    
-                            # if behaviour_session.file_name != 'm479-2018-08-12-150904.txt'  and behaviour_session.file_name != 'm484-2018-08-12-150904.txt'\
-                            # and behaviour_session.file_name !='m483-2018-07-27-164242.txt'  and  behaviour_session.file_name != 'm480-2018-08-22-111012.txt'\
-                            # and behaviour_session.file_name != 'm479-2018-08-22-111012.txt' and  behaviour_session.file_name !='m480-2018-09-11-163452.txt'\
-                            # and behaviour_session.file_name !='m484-2018-09-11-163452.txt'  and behaviour_session.file_name !='m483-2018-06-21-173958.txt'\
-                            # and behaviour_session.file_name !='m483-2018-06-20-172510.txt':
-                            if behaviour_session.file_name != 'm479-2018-08-12-150904.txt' and behaviour_session.file_name != 'm484-2018-08-12-150904.txt'\
-                            and behaviour_session.file_name !='m483-2018-07-27-164242.txt' and behaviour_session.file_name != 'm480-2018-08-22-111012.txt':
+                            if behaviour_session.file_name != 'm479-2018-08-12-150904.txt'  and behaviour_session.file_name != 'm484-2018-08-12-150904.txt'\
+                            and behaviour_session.file_name !='m483-2018-07-27-164242.txt'  and  behaviour_session.file_name != 'm480-2018-08-22-111012.txt'\
+                            and behaviour_session.file_name != 'm479-2018-08-22-111012.txt' and  behaviour_session.file_name !='m480-2018-09-11-163452.txt'\
+                            and behaviour_session.file_name !='m484-2018-09-11-163452.txt'  and behaviour_session.file_name !='m483-2018-06-21-173958.txt'\
+                            and behaviour_session.file_name !='m483-2018-06-20-172510.txt':
+                            # if behaviour_session.file_name != 'm479-2018-08-12-150904.txt' and behaviour_session.file_name != 'm484-2018-08-12-150904.txt'\
+                            # and behaviour_session.file_name !='m483-2018-07-27-164242.txt' and behaviour_session.file_name != 'm480-2018-08-22-111012.txt':
                        
                                 if subject_ephys == 'm480':
                                     m480.append(behaviour_session)

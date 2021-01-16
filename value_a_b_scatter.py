@@ -168,21 +168,18 @@ def plot_correlations(PFC, HP, n = 11, c_1 = 1):
     _95th = np.percentile(dff_PFC_HP_perm,95,0)
     
     # A>B in CA1
-    b_a = np.abs(np.asarray(task_mean[0])- np.asarray(task_mean[1]))
-    dff_PFC_HP = np.abs(np.asarray(b_a[:3])- np.asarray(b_a[3:]))
-  
-    indx = np.where(dff_PFC_HP>_95th)
+    b_a = np.abs(np.asarray(task_mean[1])- np.asarray(task_mean[0]))
+    dff_PFC_HP = np.asarray(b_a[:3])- np.asarray(b_a[3:])
+    indx = np.where(dff_PFC_HP>np.max(_95th))
     
     # A vs B
     _95th_a_b = np.percentile(pfc_hp_perm,95,0)
-    _95th_a_b_hp_pfc = abs(_95th_a_b[0]-_95th_a_b[1])
     
     #real a/b diff
     task_mean = np.asarray(task_mean)
-    a_b_real = np.abs(task_mean[:,:3,:] - task_mean[:,3:,:])
-    real_a_b_pfc_hp = abs(a_b_real[0]-a_b_real[1])
-    significant_diff = np.where(real_a_b_pfc_hp>np.max(_95th_a_b_hp_pfc))
- 
+    a_b_real = task_mean[:,3:,:] - task_mean[:,:3,:]
+    significant_diff_a = np.where(a_b_real[0]>np.max(_95th_a_b[0]))
+    significant_diff_b = np.where(a_b_real[1]>np.max(_95th_a_b[1]))
     max_ind = np.max(task_mean)
 
     plt.figure(figsize = (10,3))
@@ -196,12 +193,16 @@ def plot_correlations(PFC, HP, n = 11, c_1 = 1):
             c = isl[3] 
         plt.subplot(1,3,fig)
         plt.plot(i, color = c)
-        plt.ylim(np.min(task_mean)-0.03,np.max(task_mean)+0.05)
+        plt.ylim(np.min(task_mean)-0.03,np.max(task_mean)+0.07)
        
         p = indx[1][np.where(indx[0] == fig-1)[0]]
-        p_meta = significant_diff[1][np.where(significant_diff[0] ==fig-1)[0]]
+        p_a = significant_diff_a[1][np.where(significant_diff_a[0] ==fig-1)[0]]
+        p_b = significant_diff_b[1][np.where(significant_diff_b[0] ==fig-1)[0]]
+
         plt.plot(p, np.ones(len(p))*max_ind+0.02, '.', markersize=3, color= 'grey')
-        plt.plot(p_meta, np.ones(len(p_meta))*max_ind+0.04, '.', markersize=3, color= 'red')
+        plt.plot(p_a, np.ones(len(p_a))*max_ind+0.04, '.', markersize=3, color= 'pink')
+        plt.plot(p_b, np.ones(len(p_b))*max_ind+0.05, '.', markersize=3, color= 'black')
+
         sns.despine()
    
          
@@ -217,7 +218,8 @@ def plot_correlations(PFC, HP, n = 11, c_1 = 1):
 
         plt.subplot(1,3,fig)
         plt.plot(i, color = c, linestyle  ='--')
-        plt.ylim(np.min(task_mean)-0.03,np.max(task_mean)+0.05)
+        plt.ylim(np.min(task_mean)-0.03,np.max(task_mean)+0.07)
+        plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])
         sns.despine()
 
 
@@ -313,13 +315,15 @@ def perumute_sessions(HP, PFC, c_1 = 1, n = 6, perm_n = 500, init_t = 25, ch_t =
                 coefs.append(coef) # Predictor loadings            
             task_mean.append([np.mean(coefs[:3],0),np.mean(coefs[3:6],0), np.mean(coefs[6:9],0),np.mean(coefs[9:12],0),np.mean(coefs[12:15],0), np.mean(coefs[15:18],0)])
 
-        b_a = np.asarray(task_mean[0])- np.asarray(task_mean[1])
+        b_a = np.asarray(task_mean[1])- np.asarray(task_mean[0])
+        
         dff_PFC_HP = []
         for i,ii in enumerate(b_a):
            if i <3:
-               dff_PFC_HP.append(np.abs(b_a[i]-b_a[i+3]))
+               dff_PFC_HP.append(b_a[i]-b_a[i+3])
+               
         dff_PFC_HP_perm.append(dff_PFC_HP)
-        pfc_hp.append(np.abs(np.asarray(task_mean)[:,:3]- np.asarray(task_mean)[:,3:]))
+        pfc_hp.append((np.asarray(task_mean)[:,3:]- np.asarray(task_mean)[:,:3]))
         
     return dff_PFC_HP_perm,pfc_hp
 
@@ -705,3 +709,117 @@ def _CPD(X,y):
 
    
   
+  
+def correlations_ab(d, n = 11, a = 'HP', perm = False, c_1 = 1):
+    
+   
+    C_1_b, C_2_b, C_3_b = time_in_block(d, area = 'HP', n = n, plot_a = False, plot_b = True, perm = perm)
+    
+    C_1_a, C_2_a, C_3_a = time_in_block(d, area = 'HP', n = n, plot_a = True, plot_b = False, perm = perm)
+
+
+    mean_value_a = np.mean([np.corrcoef(C_1_a[c_1].T,C_2_a[c_1].T),np.corrcoef(C_1_a[c_1].T,C_3_a[c_1].T), np.corrcoef(C_2_a[c_1].T,C_3_a[c_1].T)],0)
+    mean_value_b = np.mean([np.corrcoef(C_1_b[c_1].T,C_2_b[c_1].T),np.corrcoef(C_1_b[c_1].T,C_3_b[c_1].T), np.corrcoef(C_2_b[c_1].T,C_3_b[c_1].T)],0)
+    
+    # plt.figure()
+    # cmap =  palettable.scientific.sequential.Acton_3.mpl_colormap
+    # plt.imshow(mean_value[63:,:63:], cmap =cmap)
+    # plt.colorbar()
+    # plt.xticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
+    # plt.yticks([0,10,25,35,42,50,60], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
+    diag_a = np.sum(np.diagonal(mean_value_a[63:,:63:]))
+    diag_b = np.sum(np.diagonal(mean_value_b[63:,:63:]))
+
+      
+    return mean_value_a, mean_value_b, diag_a,diag_b
+
+def plot_diagonal_sums(HP,PFC, perm =  False, perm_n =  1000):
+    
+    
+    n = 11
+    perm_n =  5000
+    mean_value_a_HP, mean_value_b_HP, diag_a_HP ,diag_b_HP =  correlations_ab(HP, n = 11, a = 'HP', perm = False,c_1 =1 )
+    mean_value_a_PFC, mean_value_b_PFC, diag_a_PFC,diag_b_PFC = correlations_ab(PFC, n = 11, a = 'PFC',perm = False,c_1 =1 )
+    
+    hp = np.hstack((mean_value_a_HP,mean_value_b_HP))
+    pfc = np.hstack((mean_value_a_PFC,mean_value_b_PFC))
+    hp_pfc = np.vstack((hp,pfc))
+
+    plt.figure()
+    cmap =  palettable.scientific.sequential.Acton_3.mpl_colormap
+    plt.imshow(hp_pfc, cmap =cmap)
+    plt.colorbar()
+    plt.xticks([0,10,25,35,42,50,60,63,73,88,98,105,113,123,\
+                    126, 136, 151, 161, 168, 176, 186,\
+                    189, 199, 214, 224, 231, 239, 249], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72',\
+                                                               '-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72',\
+                                                                   '-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72',\
+                                                               '-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])    
+    plt.yticks([0,10,25,35,42,50,60,63,73,88,98,105,113,123,\
+                    126, 136, 151, 161, 168, 176, 186,\
+                    189, 199, 214, 224, 231, 239, 249], ['-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72',\
+                                                               '-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72',\
+                                                                   '-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72',\
+                                                               '-1','-0.6','Init', 'Ch','R', '+0.32', '+0.72'])   
+    all_diff_real_a = diag_a_PFC-diag_a_HP
+    all_diff_real_b = diag_b_PFC-diag_b_HP
+
+    all_shuffle_a = []
+    all_shuffle_b = []
+
+    all_subjects = np.hstack([PFC['DM'][0], HP['DM'][0]])
+    all_subjects_firing = np.hstack([PFC['Data'][0], HP['Data'][0]])
+    
+    sessions_n = np.arange(len(all_subjects))
+
+    for i in range(perm_n):
+        np.random.shuffle(sessions_n) # Shuffle PFC/HP sessions
+        indices_HP = sessions_n[PFC['DM'][0].shape[0]:]
+        indices_PFC = sessions_n[:PFC['DM'][0].shape[0]]
+
+        PFC_shuffle_dm = all_subjects[np.asarray(indices_PFC)]
+        HP_shuffle_dm = all_subjects[np.asarray(indices_HP)]
+        
+        PFC_shuffle_f = all_subjects_firing[np.asarray(indices_PFC)]
+        HP_shuffle_f = all_subjects_firing[np.asarray(indices_HP)]
+       
+        HP_shuffle= [HP_shuffle_dm,HP_shuffle_f]
+        PFC_shuffle= [PFC_shuffle_dm,PFC_shuffle_f]
+
+        _all_diff_a = []
+        _all_diff_b = []
+
+        for d in [HP_shuffle,PFC_shuffle]:
+            
+            mean_value_a_HP, mean_value_b_HP, diag_a_HP ,diag_b_HP =  correlations_ab(d, n = n, a = 'perm', perm = True, c_1 =1 )
+            _all_diff_a.append(diag_a_HP)
+            _all_diff_b.append(diag_b_HP)
+ 
+        all_shuffle_a.append(_all_diff_a)
+        all_shuffle_b.append(_all_diff_b)
+ 
+    diff_all_a  = []
+    diff_all_b  = []
+    
+    for i,ii in enumerate(all_shuffle_a):
+        diff_all_a.append(all_shuffle_a[i][0]- all_shuffle_a[i][1])
+        diff_all_b.append(all_shuffle_b[i][0]- all_shuffle_b[i][1])
+  
+    _all_95_a = np.percentile(diff_all_a,95)
+    _all_95_b = np.percentile(diff_all_b,95)
+    
+    plt.figure(figsize = (4,5))
+    plt.subplot(1,2,1)
+    plt.hist(diff_all_a, color = 'grey')
+    plt.vlines(all_diff_real_a,ymin = 0, ymax = max(np.histogram(diff_all_a)[0]))
+    plt.vlines(_all_95_a,ymin = 0, ymax = max(np.histogram(diff_all_a)[0]), color = 'red')
+    
+    plt.subplot(1,2,2)
+    plt.hist(diff_all_b, color = 'grey')
+    plt.vlines(all_diff_real_b,ymin = 0, ymax = max(np.histogram(diff_all_b)[0]))
+    plt.vlines(_all_95_b, ymin = 0, ymax = max(np.histogram(diff_all_b)[0]), color = 'red')
+
+    sns.despine()
+
+
+
